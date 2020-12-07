@@ -23,7 +23,7 @@ func id(code string) int {
 }
 
 func main() {
-	file, err := os.Open("/home/brsantos/go/src/github.com/brunorene/adventofcode2020/day05/input.txt")
+	file, err := os.Open("/home/brsantos/Projetos/adventofcode2020/day05/input.txt")
 	if err != nil {
 		log.Fatal(err)
 	}
