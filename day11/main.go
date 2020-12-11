@@ -31,7 +31,7 @@ func main() {
 	}
 
 	part1(seats)
-	//part2(seats)
+	part2(seats)
 }
 
 func equals(seats1 [][]rune, seats2 [][]rune) bool {
@@ -45,22 +45,22 @@ func equals(seats1 [][]rune, seats2 [][]rune) bool {
 	return true
 }
 
-func canBeEmpty(row int, col int, seats [][]rune, countViewedClear func(int, int, [][]rune) int) bool {
+func canBeEmpty(row int, col int, seats [][]rune, emptyLimit int, countViewedClear func(int, int, [][]rune) int) bool {
 	if seats[row][col] != '#' {
 		return false
 	}
-	return countViewedClear(row, col, seats) <= 3
+	return countViewedClear(row, col, seats) <= emptyLimit
 }
 
 func canBeOccupied(row int, col int, seats [][]rune, countViewedClear func(int, int, [][]rune) int) bool {
-	if seats[row][col] != '#' {
+	if seats[row][col] != 'L' {
 		return false
 	}
 	return countViewedClear(row, col, seats) == 8
 }
 
 func countViewedClearNear(row int, col int, seats [][]rune) int {
-	count := 8
+	isClear := 8
 	for diffRow := -1; diffRow < 2; diffRow++ {
 		for diffCol := -1; diffCol < 2; diffCol++ {
 			if !(diffCol == 0 && diffRow == 0) &&
@@ -69,26 +69,34 @@ func countViewedClearNear(row int, col int, seats [][]rune) int {
 				col+diffCol >= 0 &&
 				col+diffCol < len(seats[0]) &&
 				seats[row+diffRow][col+diffCol] == '#' {
-				count--
+				isClear--
 			}
 		}
 	}
-	return count
+	return isClear
 }
 
 func countViewedClearWide(row int, col int, seats [][]rune) int {
 	isClear := 8
-	for diffRow := -1; diffRow < 2; diffRow++ {
-		for diffCol := -1; diffCol < 2; diffCol++ {
-			if diffCol != 0 && diffRow != 0 {
-				for row+diffRow >= 0 &&
-					row+diffRow < len(seats) &&
-					col+diffCol >= 0 &&
-					col+diffCol < len(seats[0]) {
-					if seats[row+diffRow][col+diffCol] == '#' {
+	for offsetRow := -1; offsetRow < 2; offsetRow++ {
+		for offsetCol := -1; offsetCol < 2; offsetCol++ {
+			if offsetRow != 0 || offsetCol != 0 {
+				currentRow := row + offsetRow
+				currentCol := col + offsetCol
+				for {
+					if currentRow < 0 ||
+						currentCol < 0 ||
+						currentRow == len(seats) ||
+						currentCol == len(seats[0]) ||
+						seats[currentRow][currentCol] == 'L' {
+						break
+					}
+					if seats[currentRow][currentCol] == '#' {
 						isClear--
 						break
 					}
+					currentRow += offsetRow
+					currentCol += offsetCol
 				}
 			}
 		}
@@ -96,18 +104,15 @@ func countViewedClearWide(row int, col int, seats [][]rune) int {
 	return isClear
 }
 
-func changeState(seats [][]rune, countViewedClear func(int, int, [][]rune) int) [][]rune {
+func changeState(seats [][]rune, emptyLimit int, countViewedClear func(int, int, [][]rune) int) [][]rune {
 	newSeats := [][]rune{}
 	for row := 0; row < len(seats); row++ {
 		newRow := []rune{}
 		for col := 0; col < len(seats[row]); col++ {
-			if seats[row][col] != '#' {
-				log.Println(col, row, seats[row][col])
-			}
 			switch {
 			case canBeOccupied(row, col, seats, countViewedClear):
 				newRow = append(newRow, '#')
-			case canBeEmpty(row, col, seats, countViewedClear):
+			case canBeEmpty(row, col, seats, emptyLimit, countViewedClear):
 				newRow = append(newRow, 'L')
 			default:
 				newRow = append(newRow, seats[row][col])
@@ -131,19 +136,19 @@ func countSeats(seats [][]rune, state rune) int {
 }
 
 func part1(seats [][]rune) {
-	newSeats := changeState(seats, countViewedClearNear)
+	newSeats := changeState(seats, 4, countViewedClearNear)
 	for !equals(seats, newSeats) {
 		seats = newSeats
-		newSeats = changeState(seats, countViewedClearNear)
+		newSeats = changeState(seats, 4, countViewedClearNear)
 	}
 	log.Println(countSeats(seats, '#'))
 }
 
 func part2(seats [][]rune) {
-	newSeats := changeState(seats, countViewedClearWide)
+	newSeats := changeState(seats, 3, countViewedClearWide)
 	for !equals(seats, newSeats) {
 		seats = newSeats
-		newSeats = changeState(seats, countViewedClearWide)
+		newSeats = changeState(seats, 3, countViewedClearWide)
 	}
 	log.Println(countSeats(seats, '#'))
 }
