@@ -77,7 +77,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	validTickets := part1(fields, tickets[1:])
+	validTickets := part1(fields, tickets)
 	part2(fields, validTickets)
 }
 
@@ -158,12 +158,12 @@ func part2(fields []field, tickets [][]int) {
 
 	log.Println(tickets[0])
 
-	mul := 1
+	mul := int64(1)
 	for rowIndex := range possibilities {
 		for key := range possibilities[rowIndex] {
 			if strings.Contains(key, "departure") {
 				log.Println(key, rowIndex, tickets[0][rowIndex])
-				mul *= tickets[0][rowIndex]
+				mul *= int64(tickets[0][rowIndex])
 			}
 		}
 	}
