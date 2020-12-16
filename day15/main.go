@@ -1,6 +1,9 @@
 package main
 
-import "log"
+import (
+	"log"
+	"time"
+)
 
 func main() {
 
@@ -8,7 +11,10 @@ func main() {
 	// start := []int{0, 3, 6}
 
 	part1(start, 2020)
+	startTime := time.Now()
 	part1(start, 30000000)
+	duration := time.Since(startTime)
+	log.Println(duration)
 }
 
 func part1(start []int, end int) {
