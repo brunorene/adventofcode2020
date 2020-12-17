@@ -1,10 +1,7 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"strconv"
-	"strings"
 )
 
 type cube struct {
@@ -23,128 +20,208 @@ func main() {
 		"##....#.",
 	}
 
-	grid3d := make(map[string]bool)
+	grid3d := make(map[cube]bool)
+	grid4d := make(map[hypercube]bool)
 
 	for y, line := range slice0 {
-		for x, cube := range line {
-			if cube == '#' {
-				grid3d[fmt.Sprint(x, "|", y, "|0")] = true
+		for x, active := range line {
+			if active == '#' {
+				grid3d[cube{x, y, 0}] = true
+				grid4d[hypercube{x, y, 0, 0}] = true
 			}
 		}
 	}
 
 	part1(grid3d)
-	part2()
+	part2(grid4d)
 }
 
-func isActive(grid3d map[string]bool, x, y, z int) bool {
-	_, exists := grid3d[fmt.Sprint(x, "|", y, "|", z)]
+func isActive(grid3d map[cube]bool, c cube) bool {
+	_, exists := grid3d[c]
 	if exists {
 		return true
 	}
 	return false
 }
 
-func activeCubes(grid3d map[string]bool) ([]int, []int, []int) {
-	x := []int{}
-	y := []int{}
-	z := []int{}
+func activeCubes(grid3d map[cube]bool) []cube {
+	cubes := []cube{}
 	for key := range grid3d {
-		parts := strings.Split(key, "|")
-		xNum, _ := strconv.Atoi(parts[0])
-		yNum, _ := strconv.Atoi(parts[1])
-		zNum, _ := strconv.Atoi(parts[2])
-		x = append(x, xNum)
-		y = append(y, yNum)
-		z = append(z, zNum)
+		cubes = append(cubes, key)
 	}
-	return x, y, z
+	return cubes
 }
 
-func inactiveRelevantCubes(grid3d map[string]bool) ([]int, []int, []int) {
-	inactive := make(map[string]bool)
+func inactiveRelevantCubes(grid3d map[cube]bool) []cube {
+	inactive := make(map[cube]bool)
 	for key := range grid3d {
-		parts := strings.Split(key, "|")
-		xNum, _ := strconv.Atoi(parts[0])
-		yNum, _ := strconv.Atoi(parts[1])
-		zNum, _ := strconv.Atoi(parts[2])
-		for cX := xNum - 1; cX < xNum+2; cX++ {
-			for cY := yNum - 1; cY < yNum+2; cY++ {
-				for cZ := zNum - 1; cZ < zNum+2; cZ++ {
-					if !isActive(grid3d, cX, cY, cZ) {
-						inactive[fmt.Sprint(cX, "|", cY, "|", cZ)] = true
+		for x := key.x - 1; x < key.x+2; x++ {
+			for y := key.y - 1; y < key.y+2; y++ {
+				for z := key.z - 1; z < key.z+2; z++ {
+					c := cube{x, y, z}
+					if !isActive(grid3d, c) {
+						inactive[c] = true
 					}
 				}
 			}
 		}
 	}
-	x := []int{}
-	y := []int{}
-	z := []int{}
+	cubes := []cube{}
 	for key := range inactive {
-		parts := strings.Split(key, "|")
-		xNum, _ := strconv.Atoi(parts[0])
-		yNum, _ := strconv.Atoi(parts[1])
-		zNum, _ := strconv.Atoi(parts[2])
-		x = append(x, xNum)
-		y = append(y, yNum)
-		z = append(z, zNum)
-
+		cubes = append(cubes, key)
 	}
-	return x, y, z
+	return cubes
 }
 
-func activeAround(grid3d map[string]bool, x, y, z int) ([]int, []int, []int) {
-	aX := []int{}
-	aY := []int{}
-	aZ := []int{}
-	for cX := x - 1; cX < x+2; cX++ {
-		for cY := y - 1; cY < y+2; cY++ {
-			for cZ := z - 1; cZ < z+2; cZ++ {
-				if isActive(grid3d, cX, cY, cZ) {
-					aX = append(aX, cX)
-					aY = append(aY, cY)
-					aZ = append(aZ, cZ)
+func activeAround(grid3d map[cube]bool, c cube) []cube {
+	active := make(map[cube]bool)
+	for x := c.x - 1; x < c.x+2; x++ {
+		for y := c.y - 1; y < c.y+2; y++ {
+			for z := c.z - 1; z < c.z+2; z++ {
+				around := cube{x, y, z}
+				if c != around {
+					if isActive(grid3d, around) {
+						active[around] = true
+					}
 				}
 			}
 		}
 	}
-	return aX, aY, aZ
+	cubes := []cube{}
+	for key := range active {
+		cubes = append(cubes, key)
+	}
+	return cubes
 }
 
-func activate(grid3d map[string]bool, x, y, z int) {
-	grid3d[fmt.Sprint(x, "|", y, "|", z)] = true
+func activate(grid3d map[cube]bool, c cube) {
+	grid3d[c] = true
 }
 
-func deactivate(grid3d map[string]bool, x, y, z int) {
-	delete(grid3d, fmt.Sprint(x, "|", y, "|", z))
+func deactivate(grid3d map[cube]bool, c cube) {
+	delete(grid3d, c)
 }
 
-func part1(grid3d map[string]bool) {
+func part1(grid3d map[cube]bool) {
 	for i := 0; i < 6; i++ {
-		newGrid := make(map[string]bool)
-		activeX, activeY, activeZ := activeCubes(grid3d)
-		for idx := 0; idx < len(activeX); idx++ {
-			xList, _, _ := activeAround(grid3d, activeX[idx], activeY[idx], activeZ[idx])
-			activate(newGrid, activeX[idx], activeY[idx], activeZ[idx])
-			if len(xList) != 2 && len(xList) != 3 {
-				deactivate(newGrid, activeX[idx], activeY[idx], activeZ[idx])
+		newGrid := make(map[cube]bool)
+		activeCubes := activeCubes(grid3d)
+		for _, cube := range activeCubes {
+			activeAround := activeAround(grid3d, cube)
+			activate(newGrid, cube)
+			if len(activeAround) != 2 && len(activeAround) != 3 {
+				deactivate(newGrid, cube)
 			}
 		}
-		inactiveX, inactiveY, inactiveZ := inactiveRelevantCubes(grid3d)
-		for idx := 0; idx < len(inactiveX); idx++ {
-			xList, _, _ := activeAround(grid3d, inactiveX[idx], inactiveY[idx], inactiveZ[idx])
-			deactivate(newGrid, inactiveX[idx], inactiveY[idx], inactiveZ[idx])
-			if len(xList) == 3 {
-				activate(newGrid, inactiveX[idx], inactiveY[idx], inactiveZ[idx])
+		inactiveCubes := inactiveRelevantCubes(grid3d)
+		for _, cube := range inactiveCubes {
+			activeCubes := activeAround(grid3d, cube)
+			deactivate(newGrid, cube)
+			if len(activeCubes) == 3 {
+				activate(newGrid, cube)
 			}
 		}
 		grid3d = newGrid
 	}
-	list, _, _ := activeCubes(grid3d)
+	list := activeCubes(grid3d)
 	log.Println(len(list))
 }
 
-func part2() {
+type hypercube struct {
+	x, y, z, w int
+}
 
+func isActive4(grid4d map[hypercube]bool, c hypercube) bool {
+	_, exists := grid4d[c]
+	if exists {
+		return true
+	}
+	return false
+}
+
+func activeCubes4(grid4d map[hypercube]bool) []hypercube {
+	cubes := []hypercube{}
+	for key := range grid4d {
+		cubes = append(cubes, key)
+	}
+	return cubes
+}
+
+func inactiveRelevantCubes4(grid4d map[hypercube]bool) []hypercube {
+	inactive := make(map[hypercube]bool)
+	for key := range grid4d {
+		for x := key.x - 1; x < key.x+2; x++ {
+			for y := key.y - 1; y < key.y+2; y++ {
+				for z := key.z - 1; z < key.z+2; z++ {
+					for w := key.w - 1; w < key.w+2; w++ {
+						c := hypercube{x, y, z, w}
+						if !isActive4(grid4d, c) {
+							inactive[c] = true
+						}
+					}
+				}
+			}
+		}
+	}
+	cubes := []hypercube{}
+	for key := range inactive {
+		cubes = append(cubes, key)
+	}
+	return cubes
+}
+
+func activeAround4(grid4d map[hypercube]bool, c hypercube) []hypercube {
+	active := make(map[hypercube]bool)
+	for x := c.x - 1; x < c.x+2; x++ {
+		for y := c.y - 1; y < c.y+2; y++ {
+			for z := c.z - 1; z < c.z+2; z++ {
+				for w := c.w - 1; w < c.w+2; w++ {
+					around := hypercube{x, y, z, w}
+					if c != around {
+						if isActive4(grid4d, around) {
+							active[around] = true
+						}
+					}
+				}
+			}
+		}
+	}
+	cubes := []hypercube{}
+	for key := range active {
+		cubes = append(cubes, key)
+	}
+	return cubes
+}
+
+func activate4(grid4d map[hypercube]bool, c hypercube) {
+	grid4d[c] = true
+}
+
+func deactivate4(grid4d map[hypercube]bool, c hypercube) {
+	delete(grid4d, c)
+}
+
+func part2(grid4d map[hypercube]bool) {
+	for i := 0; i < 6; i++ {
+		newGrid := make(map[hypercube]bool)
+		activeCubes := activeCubes4(grid4d)
+		for _, cube := range activeCubes {
+			activeAround := activeAround4(grid4d, cube)
+			activate4(newGrid, cube)
+			if len(activeAround) != 2 && len(activeAround) != 3 {
+				deactivate4(newGrid, cube)
+			}
+		}
+		inactiveCubes := inactiveRelevantCubes4(grid4d)
+		for _, cube := range inactiveCubes {
+			activeCubes := activeAround4(grid4d, cube)
+			deactivate4(newGrid, cube)
+			if len(activeCubes) == 3 {
+				activate4(newGrid, cube)
+			}
+		}
+		grid4d = newGrid
+	}
+	list := activeCubes4(grid4d)
+	log.Println(len(list))
 }
