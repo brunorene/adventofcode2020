@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"log"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -77,50 +76,50 @@ func part1(tokens [][]string) {
 }
 
 func wrap(left []string, right []string) ([]string, []string) {
-	re := regexp.MustCompile(`[0-9]+`)
-	var index int
-	if re.MatchString(left[len(left)-1]) {
-		index = len(left) - 2
-	} else {
-		level := 1
-		index = len(left) - 2
-		for level > 0 && index >= 0 {
-			switch left[index] {
-			case ")":
-				level++
-			case "(":
-				level--
-			}
-			index--
+	index := len(left) - 1
+	level := 0
+	for {
+		switch left[index] {
+		case ")":
+			level++
+		case "(":
+			level--
 		}
+		if level == 0 {
+			break
+		}
+		index--
 	}
-	rightOfLeft := left[index+1:]
-	left = append(left[:index+1], "(")
+	rightOfLeft := make([]string, len(left[index:]))
+	copy(rightOfLeft, left[index:])
+	left = append(left[:index], "(")
 	left = append(left, rightOfLeft...)
 
-	if re.MatchString(right[0]) {
-		index = 0
-	} else {
-		level := 1
-		index = 1
-		for level > 0 && index < len(right)-1 {
-			switch right[index] {
-			case "(":
-				level++
-			case ")":
-				level--
-			}
-			index++
+	index = 0
+	level = 0
+	for {
+		switch right[index] {
+		case "(":
+			level++
+		case ")":
+			level--
 		}
+		if level == 0 {
+			break
+		}
+		index++
 	}
-	leftOfRight := right[:index+1]
+	leftOfRight := make([]string, len(right[:index+1]))
+	copy(leftOfRight, right[:index+1])
 	right = append([]string{")"}, right[index+1:]...)
 	right = append(leftOfRight, right...)
 
 	return left, right
 }
 
-func prioritise(line []string) []string {
+func prioritise(oldLine []string) []string {
+	line := make([]string, len(oldLine))
+	copy(line, oldLine)
 	for index := 0; index < len(line); index++ {
 		if line[index] == "+" {
 			lenLeft := len(line[:index])
@@ -132,7 +131,6 @@ func prioritise(line []string) []string {
 			}
 		}
 	}
-	log.Println(line)
 	return line
 }
 
