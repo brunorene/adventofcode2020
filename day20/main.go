@@ -2,12 +2,20 @@ package main
 
 import (
 	"bufio"
+	"container/list"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"strconv"
 	"strings"
 )
+
+type square struct {
+	ID      int64
+	x, y    int
+	picture [][]byte
+}
 
 func main() {
 	path, _ := os.Getwd()
@@ -19,25 +27,23 @@ func main() {
 
 	scanner := bufio.NewScanner(file)
 	state := "tile"
-	var lineIndex int
-	tiles := make(map[int64][][]byte)
+	tiles := make(map[int64]square)
 	var currentID int64
 	for scanner.Scan() {
 		line := scanner.Text()
 		switch state {
 		case "tile":
 			currentID, _ = strconv.ParseInt(strings.Replace(strings.Replace(line, "Tile ", "", 1), ":", "", 1), 10, 64)
-			tiles[currentID] = [][]byte{}
+			tiles[currentID] = square{ID: currentID}
 			state = "line"
-			lineIndex = 0
 		case "line":
-			tiles[currentID] = append(tiles[currentID], []byte(line))
-			lineIndex++
-			if lineIndex == 10 {
-				state = ""
+			if line == "" {
+				state = "tile"
+				continue
 			}
-		default:
-			state = "tile"
+			square := tiles[currentID]
+			square.picture = append(square.picture, []byte(line))
+			tiles[currentID] = square
 		}
 	}
 
@@ -45,12 +51,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	part1(tiles)
+	part2(part1(tiles))
 }
 
-func view(id int64, tile [][]byte) {
-	fmt.Println(id)
-	for _, row := range tile {
+func view(s square) {
+	fmt.Println(s.ID, s.x, s.y)
+	for _, row := range s.picture {
 		for _, col := range row {
 			fmt.Print(string(col))
 		}
@@ -98,18 +104,18 @@ func reverse(b []byte) []byte {
 	return newB
 }
 
-func flipVert(tile [][]byte) [][]byte {
-	result := [][]byte{}
-	for _, line := range tile {
-		result = append(result, reverse(line))
-	}
-	return result
-}
-
 func multipleRotate(tile [][]byte, times int) [][]byte {
 	result := copyTile(tile)
 	for i := 1; i <= times; i++ {
 		result = rotate(result)
+	}
+	return result
+}
+
+func flipVert(tile [][]byte) [][]byte {
+	result := [][]byte{}
+	for _, line := range tile {
+		result = append(result, reverse(line))
 	}
 	return result
 }
@@ -159,80 +165,132 @@ func match(center [][]byte, side [][]byte) string {
 	return ""
 }
 
-type coordinates struct {
-	x, y int
-}
-
-func move(c coordinates, direction string) coordinates {
-	newC := c
+func move(x, y int, direction string) (int, int) {
 	switch direction {
 	case "top":
-		newC.y = c.y - 1
+		return x, y - 1
 	case "bottom":
-		newC.y = c.y + 1
+		return x, y + 1
 	case "left":
-		newC.x = c.y - 1
+		return x - 1, y
 	case "right":
-		newC.x = c.y + 1
+		return x + 1, y
 	}
-	return newC
+	return x, y
 }
 
-func part1(tiles map[int64][][]byte) {
-	picture := make(map[coordinates][][]byte)
-	ids := make(map[coordinates]int64)
-	coords := make(map[int64]coordinates)
-	tilesToProcess := []int64{}
-	for k, pic := range tiles {
-		tilesToProcess = append(tilesToProcess, k)
-		ids[coordinates{0, 0}] = k
-		picture[coordinates{0, 0}] = pic
-		coords[k] = coordinates{0, 0}
-		break
-	}
-	for {
-		fmt.Println(tilesToProcess)
-		fmt.Println(ids)
-		fmt.Println(coords)
-		mainID := tilesToProcess[0]
-		tilesToProcess = tilesToProcess[1:]
-		_, exists := coords[mainID]
-		if exists {
+type transformation struct {
+	rotate, flip int
+}
 
+func transformations() []transformation {
+	result := []transformation{}
+	for r := 0; r < 4; r++ {
+		for f := 0; f < 4; f++ {
+			result = append(result, transformation{r, f})
 		}
-		for id, tile := range tiles {
-			if id != mainID {
-				direction := ""
-				for r := 0; r < 4; r++ {
-					for f := 0; f < 4; f++ {
-						result := multipleRotate(tile, r)
-						result = multipleFlip(result, f)
-						direction = match(tiles[mainID], result)
-						if direction != "" {
-							tileCoords := move(coords[mainID], direction)
-							tilesToProcess = append(tilesToProcess, id)
-							ids[tileCoords] = id
-							picture[tileCoords] = result
-							coords[id] = tileCoords
-							break
-						}
-					}
-					if direction != "" {
+	}
+	return result
+}
+
+func addToGrid(grid map[int]map[int]square, x, y int, val square) map[int]map[int]square {
+	_, exists := grid[x]
+	if !exists {
+		grid[x] = make(map[int]square)
+	}
+	grid[x][y] = val
+	return grid
+}
+
+func part1(tiles map[int64]square) [][]square {
+	processed := make(map[int64]bool)
+	processQueue := list.New()
+	max := int64(0)
+	for ID := range tiles {
+		if ID > max {
+			max = ID
+		}
+	}
+	currentSquare := tiles[max]
+	currentSquare.x = 0
+	currentSquare.y = 0
+	tiles[max] = currentSquare
+	for {
+		nextSquares := make(map[string]int64)
+		for ID, tile := range tiles {
+			if ID != currentSquare.ID && !processed[ID] {
+				for _, t := range transformations() {
+					result := multipleFlip(multipleRotate(tile.picture, t.rotate), t.flip)
+					placement := match(currentSquare.picture, result)
+					if placement != "" {
+						tile.x, tile.y = move(currentSquare.x, currentSquare.y, placement)
+						tile.picture = result
+						tiles[ID] = tile
+						nextSquares[placement] = ID
 						break
 					}
 				}
-				_, existsTop := ids[move(coords[mainID], "top")]
-				_, existsBottom := ids[move(coords[mainID], "bottom")]
-				_, existsLeft := ids[move(coords[mainID], "left")]
-				_, existsRight := ids[move(coords[mainID], "right")]
-				if existsBottom && existsTop && existsRight && existsLeft {
-					break
-				}
 			}
 		}
-		if len(tilesToProcess) == 0 {
+		processed[currentSquare.ID] = true
+		for _, ID := range nextSquares {
+			if !processed[ID] {
+				processQueue.PushBack(ID)
+			}
+		}
+		for {
+			if processQueue.Len() == 0 {
+				break
+			}
+			nextID := processQueue.Remove(processQueue.Front()).(int64)
+			if !processed[nextID] {
+				currentSquare = tiles[nextID]
+				break
+			}
+		}
+		if processQueue.Len() == 0 {
 			break
 		}
 	}
-	fmt.Println(ids)
+	minX := math.MaxInt64
+	minY := math.MaxInt64
+	for _, tile := range tiles {
+		if tile.x < minX {
+			minX = tile.x
+		}
+		if tile.y < minY {
+			minY = tile.y
+		}
+	}
+	for ID, tile := range tiles {
+		tile.x -= minX
+		tile.y -= minY
+		tiles[ID] = tile
+	}
+	maxX := 0
+	maxY := 0
+	for _, tile := range tiles {
+		if tile.x > maxX {
+			maxX = tile.x
+		}
+		if tile.y > maxY {
+			maxY = tile.y
+		}
+	}
+	grid := [][]square{}
+	for x := 0; x <= maxX; x++ {
+		grid = append(grid, []square{})
+		for y := 0; y <= maxY; y++ {
+			grid[x] = append(grid[x], square{})
+		}
+	}
+	for _, tile := range tiles {
+		grid[tile.x][tile.y] = tile
+	}
+	fmt.Println(grid[0][0].ID * grid[0][len(grid)-1].ID * grid[len(grid)-1][0].ID * grid[len(grid)-1][len(grid)-1].ID)
+	return grid
+}
+
+func part2(grid [][]square) {
+
 }
