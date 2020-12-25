@@ -7,6 +7,7 @@ import (
 	"log"
 	"math"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -57,12 +58,8 @@ func main() {
 func view(s square) {
 	fmt.Println(s.ID, s.x, s.y)
 	for _, row := range s.picture {
-		for _, col := range row {
-			fmt.Print(string(col))
-		}
-		fmt.Println()
+		fmt.Println(string(row))
 	}
-	fmt.Println()
 }
 
 func rotate(tile [][]byte) [][]byte {
@@ -278,19 +275,147 @@ func part1(tiles map[int64]square) [][]square {
 		}
 	}
 	grid := [][]square{}
-	for x := 0; x <= maxX; x++ {
+	for y := 0; y <= maxY; y++ {
 		grid = append(grid, []square{})
-		for y := 0; y <= maxY; y++ {
-			grid[x] = append(grid[x], square{})
+		for x := 0; x <= maxX; x++ {
+			grid[y] = append(grid[y], square{})
 		}
 	}
 	for _, tile := range tiles {
-		grid[tile.x][tile.y] = tile
+		grid[tile.y][tile.x] = tile
 	}
 	fmt.Println(grid[0][0].ID * grid[0][len(grid)-1].ID * grid[len(grid)-1][0].ID * grid[len(grid)-1][len(grid)-1].ID)
 	return grid
 }
 
-func part2(grid [][]square) {
+func removeBorder(picture [][]byte) [][]byte {
+	borderLess := [][]byte{}
+	for row := 1; row < len(picture)-1; row++ {
+		borderLess = append(borderLess, []byte{})
+		for col := 1; col < len(picture[row])-1; col++ {
+			borderLess[row-1] = append(borderLess[row-1], picture[row][col])
+		}
+	}
+	return borderLess
+}
 
+func viewPicture(picture [][]byte) {
+	fmt.Println(len(picture), "x", len(picture[0]))
+	for _, row := range picture {
+		fmt.Println(string(row))
+	}
+}
+
+func intersection(a []int, b []int) []int {
+	is := make(map[int]bool)
+	for _, v := range a {
+		is[v] = true
+	}
+	overlap := []int{}
+	for _, v := range b {
+		if is[v] {
+			overlap = append(overlap, v)
+		}
+	}
+	return overlap
+}
+
+func countChar(matrix [][]byte, c byte) int {
+	count := 0
+	for y := 0; y < len(matrix); y++ {
+		for x := 0; x < len(matrix); x++ {
+			if matrix[y][x] == c {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+type location struct {
+	x, y int
+}
+
+func part2(grid [][]square) {
+	completePicture := [][]byte{}
+	for y := 0; y < len(grid); y++ {
+		for x := 0; x < len(grid[y]); x++ {
+			borderLess := removeBorder(grid[y][x].picture)
+			for row := 0; row < len(borderLess); row++ {
+				if x == 0 {
+					completePicture = append(completePicture, []byte{})
+				}
+				for col := 0; col < len(borderLess[row]); col++ {
+					completePicture[row+y*len(borderLess)] = append(completePicture[row+y*len(borderLess)], borderLess[row][col])
+				}
+			}
+		}
+	}
+	regSharp := regexp.MustCompile(`#`)
+	for _, t := range transformations() {
+		fmt.Println("transformation", t)
+		result := multipleFlip(multipleRotate(completePicture, t.rotate), t.flip)
+		var index0, index1, index2 []int
+		monsterStart := []location{}
+		for row := 0; row < len(result)-2; row++ {
+			findAll := regSharp.FindAllIndex(result[row], -1)
+			index0 = []int{}
+			for _, find := range findAll {
+				idx := find[0] - 18
+				if idx >= 0 {
+					index0 = append(index0, idx)
+				}
+			}
+			findAll = regSharp.FindAllIndex(result[row+1], -1)
+			index1 = []int{}
+			places := []int{0, 5, 6, 11, 12, 17, 18, 19}
+			for _, find := range findAll {
+				match := true
+				for _, place := range places {
+					nextIdx := find[0] + place
+					if nextIdx >= len(result[row+1]) {
+						match = false
+						break
+					}
+					if result[row+1][find[0]+place] != '#' {
+						match = false
+					}
+				}
+				if match {
+					index1 = append(index1, find[0])
+				}
+			}
+			findAll = regSharp.FindAllIndex(result[row+2], -1)
+			index2 = []int{}
+			places = []int{3, 6, 9, 12, 15}
+			for _, find := range findAll {
+				idx := find[0] - 1
+				match := true
+				for _, place := range places {
+					nextIdx := find[0] + place
+					if nextIdx >= len(result[row+1]) {
+						match = false
+						break
+					}
+					if result[row+2][nextIdx] != '#' {
+						match = false
+					}
+				}
+				if match && idx >= 0 {
+					index2 = append(index2, idx)
+				}
+			}
+			common := intersection(index0, intersection(index1, index2))
+			if len(common) > 0 {
+				for _, x := range common {
+					monsterStart = append(monsterStart, location{x, row})
+				}
+			}
+		}
+		if len(monsterStart) > 0 {
+			monsterSize := 15
+			total := countChar(result, byte('#'))
+			fmt.Println(total - len(monsterStart)*monsterSize)
+		}
+	}
 }
